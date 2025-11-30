@@ -1,0 +1,710 @@
+openapi: 3.0.3
+info:
+  title: Resume Extraction API
+  description: |
+    API for extracting structured information from resume PDFs.
+    Supports parsing personal information, work experience, education, skills, and more.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@resumeapi.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: https://api.resumeextractor.com/v1
+    description: Production server
+  - url: https://sandbox.resumeextractor.com/v1
+    description: Sandbox server
+
+tags:
+  - name: extraction
+    description: Resume extraction operations
+  - name: health
+    description: Health check endpoints
+
+paths:
+  /extract:
+    post:
+      tags:
+        - extraction
+      summary: Extract resume data from PDF
+      description: Upload a resume PDF file and receive structured JSON data with extracted information
+      operationId: extractResume
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Resume PDF file (max 10MB)
+                options:
+                  type: object
+                  description: Optional extraction configuration
+                  properties:
+                    extractPhoto:
+                      type: boolean
+                      default: false
+                      description: Extract profile photo if present
+                    language:
+                      type: string
+                      enum: [en, es, fr, de, pt, zh, ja]
+                      default: en
+                      description: Expected resume language
+                    parseSkillsOnly:
+                      type: boolean
+                      default: false
+                      description: Extract only skills section
+            encoding:
+              file:
+                contentType: application/pdf
+      responses:
+        '200':
+          description: Successfully extracted resume data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeData'
+              examples:
+                fullResume:
+                  $ref: '#/components/examples/FullResumeExample'
+        '400':
+          description: Bad request - Invalid file or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidFile:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "File must be a PDF"
+                    timestamp: "2024-01-15T10:30:00Z"
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable entity - Could not extract data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - ApiKeyAuth: []
+
+  /extract/url:
+    post:
+      tags:
+        - extraction
+      summary: Extract resume data from URL
+      description: Provide a URL to a resume PDF and receive structured JSON data
+      operationId: extractResumeFromUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: URL to the resume PDF file
+                  example: "https://example.com/resumes/john-doe.pdf"
+                options:
+                  type: object
+                  properties:
+                    extractPhoto:
+                      type: boolean
+                      default: false
+                    language:
+                      type: string
+                      enum: [en, es, fr, de, pt, zh, ja]
+                      default: en
+      responses:
+        '200':
+          description: Successfully extracted resume data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeData'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: URL not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - ApiKeyAuth: []
+
+  /extract/batch:
+    post:
+      tags:
+        - extraction
+      summary: Batch extract multiple resumes
+      description: Upload multiple resume PDFs and receive an array of structured data
+      operationId: batchExtractResumes
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Array of resume PDF files (max 50 files, 10MB each)
+                options:
+                  type: object
+                  properties:
+                    extractPhoto:
+                      type: boolean
+                      default: false
+                    language:
+                      type: string
+                      enum: [en, es, fr, de, pt, zh, ja]
+                      default: en
+      responses:
+        '200':
+          description: Successfully processed batch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        filename:
+                          type: string
+                        status:
+                          type: string
+                          enum: [success, failed]
+                        data:
+                          $ref: '#/components/schemas/ResumeData'
+                        error:
+                          type: string
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      successful:
+                        type: integer
+                      failed:
+                        type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - ApiKeyAuth: []
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Check if the API is operational
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+  schemas:
+    ResumeData:
+      type: object
+      properties:
+        personalInfo:
+          $ref: '#/components/schemas/PersonalInfo'
+        summary:
+          type: string
+          description: Professional summary or objective
+          example: "Experienced software engineer with 5+ years in full-stack development"
+        workExperience:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkExperience'
+        education:
+          type: array
+          items:
+            $ref: '#/components/schemas/Education'
+        skills:
+          $ref: '#/components/schemas/Skills'
+        certifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Certification'
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Language'
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        awards:
+          type: array
+          items:
+            type: string
+        publications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Publication'
+        volunteerWork:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolunteerWork'
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+
+    PersonalInfo:
+      type: object
+      properties:
+        fullName:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john.doe@email.com"
+        phone:
+          type: string
+          example: "+1-555-123-4567"
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+            city:
+              type: string
+              example: "San Francisco"
+            state:
+              type: string
+              example: "CA"
+            country:
+              type: string
+              example: "USA"
+            zipCode:
+              type: string
+              example: "94105"
+        linkedIn:
+          type: string
+          format: uri
+          example: "https://linkedin.com/in/johndoe"
+        github:
+          type: string
+          format: uri
+          example: "https://github.com/johndoe"
+        website:
+          type: string
+          format: uri
+          example: "https://johndoe.com"
+        photo:
+          type: string
+          format: byte
+          description: Base64 encoded profile photo (if extracted)
+
+    WorkExperience:
+      type: object
+      properties:
+        company:
+          type: string
+          example: "Tech Corp Inc"
+        position:
+          type: string
+          example: "Senior Software Engineer"
+        location:
+          type: string
+          example: "San Francisco, CA"
+        startDate:
+          type: string
+          format: date
+          example: "2020-01"
+        endDate:
+          type: string
+          format: date
+          example: "2023-12"
+          nullable: true
+        current:
+          type: boolean
+          example: false
+        description:
+          type: string
+          example: "Led development of microservices architecture"
+        responsibilities:
+          type: array
+          items:
+            type: string
+          example:
+            - "Developed REST APIs using Node.js"
+            - "Managed team of 5 developers"
+        achievements:
+          type: array
+          items:
+            type: string
+
+    Education:
+      type: object
+      properties:
+        institution:
+          type: string
+          example: "Stanford University"
+        degree:
+          type: string
+          example: "Bachelor of Science"
+        field:
+          type: string
+          example: "Computer Science"
+        location:
+          type: string
+          example: "Stanford, CA"
+        graduationDate:
+          type: string
+          format: date
+          example: "2018-06"
+        gpa:
+          type: number
+          format: float
+          example: 3.8
+          nullable: true
+        honors:
+          type: array
+          items:
+            type: string
+          example: ["Summa Cum Laude", "Dean's List"]
+
+    Skills:
+      type: object
+      properties:
+        technical:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "JavaScript"
+              level:
+                type: string
+                enum: [beginner, intermediate, advanced, expert]
+                example: "expert"
+              yearsOfExperience:
+                type: number
+                example: 5
+        soft:
+          type: array
+          items:
+            type: string
+          example: ["Leadership", "Communication", "Problem Solving"]
+        tools:
+          type: array
+          items:
+            type: string
+          example: ["Git", "Docker", "AWS", "Jira"]
+
+    Certification:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "AWS Certified Solutions Architect"
+        issuer:
+          type: string
+          example: "Amazon Web Services"
+        issueDate:
+          type: string
+          format: date
+          example: "2022-03"
+        expiryDate:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-03"
+        credentialId:
+          type: string
+          example: "ABC123XYZ"
+        url:
+          type: string
+          format: uri
+
+    Language:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "English"
+        proficiency:
+          type: string
+          enum: [elementary, limited_working, professional_working, full_professional, native]
+          example: "native"
+
+    Project:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "E-commerce Platform"
+        description:
+          type: string
+          example: "Built a scalable e-commerce platform using React and Node.js"
+        role:
+          type: string
+          example: "Lead Developer"
+        technologies:
+          type: array
+          items:
+            type: string
+          example: ["React", "Node.js", "MongoDB"]
+        url:
+          type: string
+          format: uri
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+
+    Publication:
+      type: object
+      properties:
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        publisher:
+          type: string
+        publicationDate:
+          type: string
+          format: date
+        url:
+          type: string
+          format: uri
+
+    VolunteerWork:
+      type: object
+      properties:
+        organization:
+          type: string
+          example: "Code for Good"
+        role:
+          type: string
+          example: "Volunteer Developer"
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+
+    Metadata:
+      type: object
+      properties:
+        extractedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        confidence:
+          type: number
+          format: float
+          description: Overall confidence score (0-1)
+          example: 0.92
+        processingTime:
+          type: number
+          description: Processing time in milliseconds
+          example: 1250
+        pdfMetadata:
+          type: object
+          properties:
+            pages:
+              type: integer
+              example: 2
+            fileSize:
+              type: integer
+              description: File size in bytes
+              example: 245678
+            author:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          example: "Invalid file format"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+  examples:
+    FullResumeExample:
+      value:
+        personalInfo:
+          fullName: "John Doe"
+          email: "john.doe@email.com"
+          phone: "+1-555-123-4567"
+          address:
+            city: "San Francisco"
+            state: "CA"
+            country: "USA"
+          linkedIn: "https://linkedin.com/in/johndoe"
+          github: "https://github.com/johndoe"
+        summary: "Experienced software engineer with 5+ years in full-stack development, specializing in cloud-native applications and microservices architecture."
+        workExperience:
+          - company: "Tech Corp Inc"
+            position: "Senior Software Engineer"
+            location: "San Francisco, CA"
+            startDate: "2020-01"
+            endDate: "2023-12"
+            current: false
+            responsibilities:
+              - "Developed REST APIs using Node.js and Express"
+              - "Implemented CI/CD pipelines using Jenkins and Docker"
+              - "Mentored junior developers and conducted code reviews"
+          - company: "StartupXYZ"
+            position: "Full Stack Developer"
+            location: "San Francisco, CA"
+            startDate: "2018-06"
+            endDate: "2019-12"
+            current: false
+            responsibilities:
+              - "Built responsive web applications using React"
+              - "Designed and implemented PostgreSQL database schemas"
+        education:
+          - institution: "Stanford University"
+            degree: "Bachelor of Science"
+            field: "Computer Science"
+            location: "Stanford, CA"
+            graduationDate: "2018-06"
+            gpa: 3.8
+            honors: ["Summa Cum Laude"]
+        skills:
+          technical:
+            - name: "JavaScript"
+              level: "expert"
+              yearsOfExperience: 5
+            - name: "Python"
+              level: "advanced"
+              yearsOfExperience: 4
+            - name: "React"
+              level: "expert"
+              yearsOfExperience: 5
+          soft:
+            - "Leadership"
+            - "Communication"
+            - "Problem Solving"
+          tools:
+            - "Git"
+            - "Docker"
+            - "AWS"
+            - "Kubernetes"
+        certifications:
+          - name: "AWS Certified Solutions Architect"
+            issuer: "Amazon Web Services"
+            issueDate: "2022-03"
+            expiryDate: "2025-03"
+        languages:
+          - name: "English"
+            proficiency: "native"
+          - name: "Spanish"
+            proficiency: "professional_working"
+        metadata:
+          extractedAt: "2024-01-15T10:30:00Z"
+          confidence: 0.92
+          processingTime: 1250
+          pdfMetadata:
+            pages: 2
+            fileSize: 245678
