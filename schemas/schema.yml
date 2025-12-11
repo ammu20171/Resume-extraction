@@ -141,4 +141,4 @@ components:
             type: string
           default: []
       additionalProperties: false
-      required: []
+      description: Schema representing extracted resume data
