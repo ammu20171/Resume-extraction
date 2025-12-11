@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.venv/
+.pytest_cache/
+.idea/
+*.swp
+*.swo
+
+# Temp files
+*.tmp
+temp/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+sample_resumes/
+uploads/
+*.pdf
+*.docx
+!tests/sample_resumes/*.pdf
+!tests/sample_resumes/*.docx
+
+# Environment
+.env

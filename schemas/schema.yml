@@ -1,0 +1,144 @@
+openapi: 3.0.0
+info:
+  title: Resume Schema
+  version: "1.0.0"
+
+servers:
+  - url: "http://localhost:8000"
+    description: "Local HTTP server"
+
+paths:
+  /extract:
+    post:
+      summary: Upload a resume file (PDF/DOCX/Images)
+      operationId: uploadResume
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        "200":
+          description: Successful extraction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  filename:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Resume'
+        "400":
+          description: Bad request / unsupported file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        "500":
+          description: Processing error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+components:
+  schemas:
+    ExperienceItem:
+      type: object
+      properties:
+        company:
+          type: string
+          nullable: true
+        role:
+          type: string
+          nullable: true
+        start_date:
+          type: string
+          nullable: true
+        end_date:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      additionalProperties: false
+
+    EducationItem:
+      type: object
+      properties:
+        institution:
+          type: string
+          nullable: true
+        degree:
+          type: string
+          nullable: true
+        start_year:
+          type: string
+          nullable: true
+        end_year:
+          type: string
+          nullable: true
+      additionalProperties: false
+
+    Resume:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+          format: email
+        phone:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        links:
+          type: array
+          items:
+            type: string
+          default: []
+        summary:
+          type: string
+          nullable: true
+        skills:
+          type: array
+          items:
+            type: string
+          default: []
+        experience:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperienceItem'
+          default: []
+        education:
+          type: array
+          items:
+            $ref: '#/components/schemas/EducationItem'
+          default: []
+        certifications:
+          type: array
+          items:
+            type: string
+          default: []
+      additionalProperties: false
+      required: []
