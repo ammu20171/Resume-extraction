@@ -27,7 +27,6 @@ tmp/
 Thumbs.db
 
 # Project specific
-sample_resumes/
 uploads/
 *.pdf
 *.docx
